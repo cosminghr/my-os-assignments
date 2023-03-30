@@ -69,9 +69,9 @@ void listRec(const char *path)
             if (lstat(fullPath, &statbuf) == 0)
             {
                 printf("%s\n", fullPath);
-                if (S_ISDIR(statbuf.st_mode))
+                if (S_ISDIR(statbuf.st_mode)) //verificam daca este director
                 {
-                    listRec(fullPath);
+                    listRec(fullPath); //se face parcurgerea recursiva
                 }
             }
         }
