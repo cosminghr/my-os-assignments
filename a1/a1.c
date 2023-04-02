@@ -5,6 +5,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <fcntl.h>
+
+#define MAX_LINE_LENGTH 1024
+
 
 void listIterative(const char *path, char *is_in_path, int control, int has_perm)
 {
@@ -45,6 +49,7 @@ void listIterative(const char *path, char *is_in_path, int control, int has_perm
             }
         }
     }
+    //free(fullPath);
     closedir(dir);
 }
 
@@ -69,16 +74,131 @@ void listRec(const char *path)
             if (lstat(fullPath, &statbuf) == 0)
             {
                 printf("%s\n", fullPath);
-                if (S_ISDIR(statbuf.st_mode)) //verificam daca este director
+                if (S_ISDIR(statbuf.st_mode)) // verificam daca este director
                 {
-                    listRec(fullPath); //se face parcurgerea recursiva
+                    listRec(fullPath); // se face parcurgerea recursiva
                 }
             }
         }
     }
+    //free(fullPath);
     closedir(dir);
 }
 
+/*void parseSFformat(const char *path)
+{
+    DIR *dir = NULL;
+    struct dirent *entry = NULL;
+    char fullPath[512];
+    struct stat statbuf;
+
+    dir = opendir(path);
+    if (dir == NULL)
+    {
+        perror("Could not open directory");
+        return;
+    }
+    while ((entry = readdir(dir)) != NULL)
+    {
+        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0)
+        {
+            snprintf(fullPath, 512, "%s/%s", path, entry->d_name);
+            if (lstat(fullPath, &statbuf) == 0)
+            {
+                char magic[5];
+                int version;
+                int nr_sections;
+                int input_file = open(path, O_RDONLY);
+
+                if (input_file < 0)
+                {
+                    printf("ERROR: Could not open input file\n");
+                    return 1;
+                }
+
+                if (read(input_file, magic, 4) != 4)
+                {
+                    printf("ERROR: Invalid input file\n");
+                    return 1;
+                }
+
+                magic[4] = '\0';
+
+                if (strcmp(magic, "atxn") != 0)
+                {
+                    printf("ERROR: Wrong magic\n");
+                    return 1;
+                }
+
+                if (read(input_file, &version, sizeof(int)) != sizeof(int))
+                {
+                    printf("ERROR: Invalid input file\n");
+                    return 1;
+                }
+
+                if (version < 82 || version > 142)
+                {
+                    printf("ERROR: Wrong version\n");
+                    return 1;
+                }
+
+                if (read(input_file, &nr_sections, sizeof(int)) != sizeof(int))
+                {
+                    printf("ERROR: Invalid input file\n");
+                    return 1;
+                }
+
+                if (nr_sections < 3 || nr_sections > 17)
+                {
+                    printf("ERROR: Wrong number of sections\n");
+                    return 1;
+                }
+
+                // Parcurgerea sectiunilor
+                for (int i = 0; i < nr_sections; i++)
+                {
+                    char name[MAX_LINE_LENGTH];
+                    char type[3];
+                    int size;
+
+                    if (scanf("%s %s %d\n", name, type, &size) != 3)
+                    {
+                        printf("ERROR: Invalid input file\n");
+                        return 1;
+                    }
+
+                    // Citirea continutului sectiunii
+                    int content_size = size - strlen(name) - strlen(type) - 3;
+                    char *content = malloc(content_size);
+
+                    if (read(input_file, content, content_size) != content_size)
+                    {
+                        printf("ERROR: Invalid input file\n");
+                        return 1;
+                    }
+
+                    printf("section%d: name='%s', type='%s', size=%d, content='%s'\n",
+                           i, name, type, size, content);
+
+                    free(content);
+                }
+
+                // Inchiderea fisierului de intrare
+                if (close(input_file) < 0)
+                {
+                    printf("ERROR: Could not close input file\n");
+                    return 1;
+                }
+
+                //free(magic);
+            }
+        }
+
+        //free(fullPath);
+        close(dir);
+    }
+}
+*/
 int main(int argc, char **argv)
 {
 
@@ -96,7 +216,7 @@ int main(int argc, char **argv)
             {
                 if (strncmp(argv[3], "path=", 5) == 0) // verificam daca argumentul al treilea coincide cu comanda introdusa in terminal(adica aparita substring-ului path= )
                 {
-                    char *sirPath = malloc((strlen(argv[3]) - 5) * sizeof(char));
+                    char *sirPath = malloc((strlen(argv[3])) * sizeof(char));
                     int countj = 5;
                     printf("SUCCESS\n");
                     for (int i = 0; i < strlen(argv[3]); i++)
@@ -112,7 +232,7 @@ int main(int argc, char **argv)
             // pentru name_start_with
             if (strncmp(argv[2], "path=", 5) == 0)
             {
-                char *sirPath = malloc((strlen(argv[2]) - 5) * sizeof(char));
+                char *sirPath = malloc((strlen(argv[2])) * sizeof(char));
                 int countj = 5;
                 printf("SUCCESS\n");
                 for (int i = 0; i < strlen(argv[2]); i++)
@@ -120,10 +240,11 @@ int main(int argc, char **argv)
                     sirPath[i] = argv[2][countj++];
                 }
                 listIterative(sirPath, NULL, 0, 0);
+                free(sirPath);
             }
             if (strncmp(argv[2], "name_starts_with=", 17) == 0) // verificam daca argumentul al doilea coincide cu comanda introdusa in terminal( adica aparitia substring-ului name_start_with= )
             {
-                char *is_in_path1 = malloc((strlen(argv[2]) - 17) * sizeof(char)); // alocam memorie pentru substring
+                char *is_in_path1 = malloc((strlen(argv[2])) * sizeof(char)); // alocam memorie pentru substring
                 int countString = 17;
                 for (int i = 0; i < strlen(argv[2]); i++)
                 {
@@ -131,7 +252,7 @@ int main(int argc, char **argv)
                 }
                 if (strncmp(argv[3], "path=", 5) == 0) // verificam daca al treilea argument coincide cu path=
                 {
-                    char *sirPath = malloc((strlen(argv[3]) - 5) * sizeof(char)); // alocam memorie pentru path
+                    char *sirPath = malloc((strlen(argv[3])) * sizeof(char)); // alocam memorie pentru path
                     int countj = 5;
                     printf("SUCCESS\n");
                     for (int i = 0; i < strlen(argv[3]); i++)
@@ -149,7 +270,7 @@ int main(int argc, char **argv)
             {
                 if (strncmp(argv[3], "path=", 5) == 0)
                 {
-                    char *sirPath = malloc((strlen(argv[3]) - 5) * sizeof(char));
+                    char *sirPath = malloc((strlen(argv[3])) * sizeof(char));
                     int countj = 5;
                     printf("SUCCESS\n");
                     for (int i = 0; i < strlen(argv[3]); i++)
@@ -160,6 +281,21 @@ int main(int argc, char **argv)
                     free(sirPath);
                 }
             }
+
+            /*if (strcmp(argv[1], "parse") == 0)
+            {
+                if (strncmp(argv[1], "path=", 5) == 0)
+                {
+                    char *sirPath1 = malloc((strlen(argv[1]) - 5) * sizeof(char));
+                    int countj = 5;
+                    for (int i = 0; i < strlen(argv[1]); i++)
+                    {
+                        sirPath1[i] = argv[1][countj++];
+                    }
+                    parseSFformat(sirPath1);
+                    free(sirPath1);
+                }
+            }*/
         }
     }
 
