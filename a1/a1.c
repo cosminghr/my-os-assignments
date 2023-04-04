@@ -9,6 +9,13 @@
 
 #define MAX_LINE_LENGTH 1024
 
+typedef struct
+{
+    char sect_name[18];
+    int sect_type;
+    int sect_offset;
+    int sect_size;
+} section_header;
 
 void listIterative(const char *path, char *is_in_path, int control, int has_perm)
 {
@@ -49,7 +56,7 @@ void listIterative(const char *path, char *is_in_path, int control, int has_perm
             }
         }
     }
-    //free(fullPath);
+    // free(fullPath);
     closedir(dir);
 }
 
@@ -81,124 +88,104 @@ void listRec(const char *path)
             }
         }
     }
-    //free(fullPath);
+    // free(fullPath);
     closedir(dir);
 }
 
-/*void parseSFformat(const char *path)
+void parseSFformat(const char *path)
 {
-    DIR *dir = NULL;
-    struct dirent *entry = NULL;
-    char fullPath[512];
-    struct stat statbuf;
+    int fd;
+    int file_size;
+    char magic[5];
+    int header_size;
+    int no_of_sect = 0;
+    int version;
 
-    dir = opendir(path);
-    if (dir == NULL)
+    fd = open(path, O_RDONLY);
+    if (fd == -1)
     {
-        perror("Could not open directory");
+        printf("Failed to open file");
         return;
     }
-    while ((entry = readdir(dir)) != NULL)
+
+    file_size = lseek(fd, 0, SEEK_END);
+    // printf("%d\n", file_size);
+    lseek(fd, -4, SEEK_CUR);
+    read(fd, &magic, 4);
+    magic[4] = '\0';
+    // printf("%s\n", magic);
+
+    lseek(fd, -6, SEEK_END);
+    read(fd, &header_size, 2);
+    // printf("%d\n", header_size);
+
+    lseek(fd, file_size - header_size, SEEK_SET);
+    read(fd, &version, 4);
+    // printf("%d\n", version);
+
+    read(fd, &no_of_sect, 1);
+    // printf("%d\n", no_of_sect);
+
+    section_header *headere = (section_header *)malloc(12 * sizeof(section_header));
+    if (!headere)
     {
-        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0)
+        printf("Failed to allocate memory");
+        close(fd);
+        return;
+    }
+    
+    int verifica = 0;
+
+    if (strcmp(magic, "axtn") == 0)
+    {
+        printf("ERROR\nwrong magic");
+        verifica =1;
+        return;
+    }
+    else if (version < 82 || version > 142)
+    {
+        printf("ERROR\nwrong version");
+        verifica =1;
+        return;
+    }
+    else if (no_of_sect < 3 || no_of_sect > 17)
+    {
+        printf("ERROR\nwrong sect_nr");
+        verifica = 1;
+        return;
+    }
+    if(verifica == 0)
+    {
+        printf("SUCCESS\n");
+        printf("version=%d\n", version);
+        printf("nr_sections=%d\n", no_of_sect);
+        for (int i = 0; i < no_of_sect; i++)
         {
-            snprintf(fullPath, 512, "%s/%s", path, entry->d_name);
-            if (lstat(fullPath, &statbuf) == 0)
+            printf("section%d: ", i + 1);
+            read(fd, &headere[i].sect_name, 18);
+            read(fd, &headere[i].sect_type, 2);
+            read(fd, &headere[i].sect_offset, 4);
+            read(fd, &headere[i].sect_size, 4);
+            if (headere[i].sect_type == 55 || headere[i].sect_type == 58)
             {
-                char magic[5];
-                int version;
-                int nr_sections;
-                int input_file = open(path, O_RDONLY);
-
-                if (input_file < 0)
-                {
-                    printf("ERROR: Could not open input file\n");
-                    return 1;
-                }
-
-                if (read(input_file, magic, 4) != 4)
-                {
-                    printf("ERROR: Invalid input file\n");
-                    return 1;
-                }
-
-                magic[4] = '\0';
-
-                if (strcmp(magic, "atxn") != 0)
-                {
-                    printf("ERROR: Wrong magic\n");
-                    return 1;
-                }
-
-                if (read(input_file, &version, sizeof(int)) != sizeof(int))
-                {
-                    printf("ERROR: Invalid input file\n");
-                    return 1;
-                }
-
-                if (version < 82 || version > 142)
-                {
-                    printf("ERROR: Wrong version\n");
-                    return 1;
-                }
-
-                if (read(input_file, &nr_sections, sizeof(int)) != sizeof(int))
-                {
-                    printf("ERROR: Invalid input file\n");
-                    return 1;
-                }
-
-                if (nr_sections < 3 || nr_sections > 17)
-                {
-                    printf("ERROR: Wrong number of sections\n");
-                    return 1;
-                }
-
-                // Parcurgerea sectiunilor
-                for (int i = 0; i < nr_sections; i++)
-                {
-                    char name[MAX_LINE_LENGTH];
-                    char type[3];
-                    int size;
-
-                    if (scanf("%s %s %d\n", name, type, &size) != 3)
-                    {
-                        printf("ERROR: Invalid input file\n");
-                        return 1;
-                    }
-
-                    // Citirea continutului sectiunii
-                    int content_size = size - strlen(name) - strlen(type) - 3;
-                    char *content = malloc(content_size);
-
-                    if (read(input_file, content, content_size) != content_size)
-                    {
-                        printf("ERROR: Invalid input file\n");
-                        return 1;
-                    }
-
-                    printf("section%d: name='%s', type='%s', size=%d, content='%s'\n",
-                           i, name, type, size, content);
-
-                    free(content);
-                }
-
-                // Inchiderea fisierului de intrare
-                if (close(input_file) < 0)
-                {
-                    printf("ERROR: Could not close input file\n");
-                    return 1;
-                }
-
-                //free(magic);
+                printf("%s ", headere[i].sect_name);
+                printf("%d ", headere[i].sect_type);
+                printf("%d \n", headere[i].sect_size);
+            }
+            else
+            {
+                printf("ERROR\nwrong sect_types");
+                return;
             }
         }
-
-        //free(fullPath);
-        close(dir);
     }
+
+    
+    free(headere);
+
+    close(fd);
 }
-*/
+
 int main(int argc, char **argv)
 {
 
@@ -281,21 +268,21 @@ int main(int argc, char **argv)
                     free(sirPath);
                 }
             }
+        }
 
-            /*if (strcmp(argv[1], "parse") == 0)
+        if (strcmp(argv[1], "parse") == 0)
+        {
+            if (strncmp(argv[2], "path=", 5) == 0)
             {
-                if (strncmp(argv[1], "path=", 5) == 0)
+                char *sirPath1 = malloc(strlen(argv[2]) * sizeof(char));
+                int countj = 5;
+                for (int i = 0; i < strlen(argv[2]); i++)
                 {
-                    char *sirPath1 = malloc((strlen(argv[1]) - 5) * sizeof(char));
-                    int countj = 5;
-                    for (int i = 0; i < strlen(argv[1]); i++)
-                    {
-                        sirPath1[i] = argv[1][countj++];
-                    }
-                    parseSFformat(sirPath1);
-                    free(sirPath1);
+                    sirPath1[i] = argv[2][countj++];
                 }
-            }*/
+                parseSFformat(sirPath1);
+                free(sirPath1);
+            }
         }
     }
 
