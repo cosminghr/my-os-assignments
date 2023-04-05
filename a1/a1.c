@@ -94,12 +94,12 @@ void listRec(const char *path)
 
 void parseSFformat(const char *path)
 {
-    int fd;
-    int file_size;
+    int fd = 0;
+    int file_size = 0;
     char magic[5];
-    int header_size;
+    int header_size = 0;
     int no_of_sect = 0;
-    int version;
+    int version = 0;
 
     fd = open(path, O_RDONLY);
     if (fd == -1)
@@ -126,61 +126,73 @@ void parseSFformat(const char *path)
     read(fd, &no_of_sect, 1);
     // printf("%d\n", no_of_sect);
 
-    section_header *headere = (section_header *)malloc(12 * sizeof(section_header));
+    section_header *headere = (section_header *)malloc(no_of_sect * sizeof(section_header));
     if (!headere)
     {
         printf("Failed to allocate memory");
+        free(headere);
         close(fd);
         return;
     }
-    
-    int verifica = 0;
 
+    int verifica = 0;
     if (strcmp(magic, "axtn") == 0)
     {
         printf("ERROR\nwrong magic");
-        verifica =1;
+        verifica = 1;
+        free(headere);
+        close(fd);
         return;
     }
     else if (version < 82 || version > 142)
     {
         printf("ERROR\nwrong version");
-        verifica =1;
+        verifica = 1;
+        free(headere);
+        close(fd);
         return;
     }
     else if (no_of_sect < 3 || no_of_sect > 17)
     {
         printf("ERROR\nwrong sect_nr");
         verifica = 1;
+        free(headere);
+        close(fd);
         return;
     }
-    if(verifica == 0)
+    else
     {
-        printf("SUCCESS\n");
-        printf("version=%d\n", version);
-        printf("nr_sections=%d\n", no_of_sect);
         for (int i = 0; i < no_of_sect; i++)
         {
-            printf("section%d: ", i + 1);
             read(fd, &headere[i].sect_name, 18);
             read(fd, &headere[i].sect_type, 2);
             read(fd, &headere[i].sect_offset, 4);
             read(fd, &headere[i].sect_size, 4);
-            if (headere[i].sect_type == 55 || headere[i].sect_type == 58)
-            {
-                printf("%s ", headere[i].sect_name);
-                printf("%d ", headere[i].sect_type);
-                printf("%d \n", headere[i].sect_size);
-            }
-            else
+            if (headere[i].sect_type != 55 && headere[i].sect_type != 58)
             {
                 printf("ERROR\nwrong sect_types");
-                return;
+                verifica = 1;
+                break;
+            }
+        }
+        if (verifica == 0)
+        {
+            printf("SUCCESS\n");
+            printf("version=%d\n", version);
+            printf("nr_sections=%d\n", no_of_sect);
+        }
+        for (int j = 0; j < no_of_sect; j++)
+        {
+            if (verifica == 0)
+            {
+                printf("section%d: ", j + 1);
+                printf("%s ", headere[j].sect_name);
+                printf("%d ", headere[j].sect_type);
+                printf("%d \n", headere[j].sect_size);
             }
         }
     }
 
-    
     free(headere);
 
     close(fd);
