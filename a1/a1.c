@@ -96,7 +96,7 @@ void parseSFformat(const char *path)
 {
     int fd = 0;
     int file_size = 0;
-    char magic[5];
+    char magic[5] = "";
     int header_size = 0;
     int no_of_sect = 0;
     int version = 0;
@@ -136,9 +136,10 @@ void parseSFformat(const char *path)
     }
 
     int verifica = 0;
-    if (strcmp(magic, "axtn") == 0)
+    // printf("%s\n",magic);
+    if (magic[0] != 'a' && magic[1] != 'x' && magic[2] != 't' && magic[3] != 'n')
     {
-        printf("ERROR\nwrong magic");
+        printf("ERROR\nwrong magic\n");
         verifica = 1;
         free(headere);
         close(fd);
@@ -180,10 +181,7 @@ void parseSFformat(const char *path)
             printf("SUCCESS\n");
             printf("version=%d\n", version);
             printf("nr_sections=%d\n", no_of_sect);
-        }
-        for (int j = 0; j < no_of_sect; j++)
-        {
-            if (verifica == 0)
+            for (int j = 0; j < no_of_sect; j++)
             {
                 printf("section%d: ", j + 1);
                 printf("%s ", headere[j].sect_name);
