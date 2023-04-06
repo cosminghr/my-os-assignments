@@ -250,18 +250,15 @@ void findall(const char *path)
                     lseek(fd, -4, SEEK_CUR);
                     read(fd, &magic, 4);
                     magic[4] = '\0';
-                    printf("%s\n", magic);
 
                     lseek(fd, -6, SEEK_END);
                     read(fd, &header_size, 2);
-                    printf("%d\n", header_size);
-
+                   
                     lseek(fd, file_size - header_size, SEEK_SET);
                     read(fd, &version, 4);
-                    printf("%d\n", version);
 
                     read(fd, &no_of_sect, 1);
-                    printf("%d\n", no_of_sect);
+                    
                     section_header *headere = (section_header *)malloc(no_of_sect * sizeof(section_header));
                     if (!headere)
                     {
