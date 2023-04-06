@@ -7,8 +7,6 @@
 #include <dirent.h>
 #include <fcntl.h>
 
-#define MAX_LINE_LENGTH 1024
-
 typedef struct
 {
     char sect_name[18];
@@ -102,6 +100,7 @@ void parseSFformat(const char *path)
     int version = 0;
 
     fd = open(path, O_RDONLY);
+    // printf("%d\n", fd);
     if (fd == -1)
     {
         printf("Failed to open file");
@@ -136,7 +135,7 @@ void parseSFformat(const char *path)
     }
 
     int verifica = 0;
-    // printf("%s\n",magic);
+    // printf("%s\n", magic);
     if (magic[0] != 'a' && magic[1] != 'x' && magic[2] != 't' && magic[3] != 'n')
     {
         printf("ERROR\nwrong magic\n");
@@ -165,6 +164,7 @@ void parseSFformat(const char *path)
     {
         for (int i = 0; i < no_of_sect; i++)
         {
+            headere[i].sect_type = 0;
             read(fd, &headere[i].sect_name, 18);
             read(fd, &headere[i].sect_type, 2);
             read(fd, &headere[i].sect_offset, 4);
@@ -194,6 +194,145 @@ void parseSFformat(const char *path)
     free(headere);
 
     close(fd);
+}
+
+void extract(const char *path, int nr_sect, int line)
+{
+    printf("%d\n", nr_sect);
+    printf("%d\n", line);
+}
+
+void findall(const char *path)
+{
+
+    DIR *dir = NULL;
+    struct dirent *entry = NULL;
+    char fullPath[512];
+    struct stat statbuf;
+    int count_linii = 1;
+
+    dir = opendir(path);
+    if (dir == NULL)
+    {
+        perror("Could not open directory");
+        return;
+    }
+    while ((entry = readdir(dir)) != NULL)
+    {
+        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0)
+        {
+            snprintf(fullPath, 512, "%s/%s", path, entry->d_name);
+            if (lstat(fullPath, &statbuf) == 0)
+            {
+                // printf("%s\n", fullPath);
+                if (S_ISDIR(statbuf.st_mode))
+                {
+                    findall(fullPath);
+                }
+                else if (S_ISREG(statbuf.st_mode))
+                {
+
+                    int fd = 0;
+                    int file_size = 0;
+                    char magic[5] = "";
+                    int header_size = 0;
+                    int no_of_sect = 0;
+                    int version = 0;
+
+                    fd = open(fullPath, O_RDONLY);
+                    if (fd == -1)
+                    {
+                        printf("Failed to open file");
+                        return;
+                    }
+
+                    file_size = lseek(fd, 0, SEEK_END);
+                    lseek(fd, -4, SEEK_CUR);
+                    read(fd, &magic, 4);
+                    magic[4] = '\0';
+
+                    lseek(fd, -6, SEEK_END);
+                    read(fd, &header_size, 2);
+
+                    lseek(fd, file_size - header_size, SEEK_SET);
+                    read(fd, &version, 4);
+
+                    read(fd, &no_of_sect, 1);
+                    section_header *headere = (section_header *)malloc(no_of_sect * sizeof(section_header));
+                    if (!headere)
+                    {
+                        printf("Failed to allocate memory");
+                        free(headere);
+                        close(fd);
+                        return;
+                    }
+
+                    int verifica = 0;
+                    if ((magic[0] != 'a' && magic[1] != 'x' && magic[2] != 't' && magic[3] != 'n'))
+                    {
+                        printf("d");
+                        verifica = 1;
+                        free(headere);
+                        close(fd);
+                        return;
+                    }
+                    if (version < 82 || version > 142)
+                    {
+                        printf("c");
+                        verifica = 1;
+                        free(headere);
+                        close(fd);
+                        return;
+                    }
+                    if (no_of_sect < 3 || no_of_sect > 17)
+                    {
+                        printf("b");
+                        verifica = 1;
+                        free(headere);
+                        close(fd);
+                        return;
+                    }
+                    else
+                    {
+                        for (int i = 0; i < no_of_sect; i++)
+                        {
+                            lseek(fd, file_size - header_size + 5, SEEK_SET); // plus 5 pentru a sari de bitii pentru version si no_of_sect
+                            headere[i].sect_type = 0;
+                            read(fd, &headere[i].sect_name, 18);
+                            read(fd, &headere[i].sect_type, 2);
+                            read(fd, &headere[i].sect_offset, 4);
+                            read(fd, &headere[i].sect_size, 4);
+                            if (headere[i].sect_type != 55 && headere[i].sect_type != 58)
+                            {
+                                printf("a");
+                                verifica = 1;
+                                break;
+                            }
+                            char oaod[2] = {0x0D, 0x0A};
+                            lseek(fd, headere[i].sect_offset, SEEK_SET);
+                            for (int j = 0; j < headere[i].sect_size; j++)
+                            {
+                                char curr_char[3] = "";
+                                read(fd, &curr_char, 2);
+                                curr_char[3] = '\0';
+                                if (curr_char[0] == oaod[0] && curr_char[1] == oaod[1])
+                                {
+                                    count_linii++;
+                                }
+                            }
+                        }
+                        if (verifica != 1 && count_linii > 14)
+                        {
+                            printf("%s\n", fullPath);
+                        }
+                    }
+                    free(headere);
+                    close(fd);
+                }
+            }
+        }
+    }
+    closedir(dir);
 }
 
 int main(int argc, char **argv)
@@ -291,6 +430,61 @@ int main(int argc, char **argv)
                     sirPath1[i] = argv[2][countj++];
                 }
                 parseSFformat(sirPath1);
+                free(sirPath1);
+            }
+        }
+
+        if (strcmp(argv[1], "extract") == 0)
+        {
+            if (strncmp(argv[2], "path=", 5) == 0)
+            {
+                char *sirPath1 = malloc(strlen(argv[2]) * sizeof(char));
+                int countj = 5;
+                for (int i = 0; i < strlen(argv[2]); i++)
+                {
+                    sirPath1[i] = argv[2][countj++];
+                }
+                if (strncmp(argv[3], "section=", 8) == 0)
+                {
+                    char *section_char = malloc(strlen(argv[3]) * sizeof(char));
+                    int nr_sect = 0;
+                    int countj = 8;
+                    for (int i = 0; i < strlen(argv[3]); i++)
+                    {
+                        section_char[i] = argv[3][countj++];
+                    }
+                    sscanf(section_char, "%d", &nr_sect);
+
+                    if (strncmp(argv[4], "line=", 5) == 0)
+                    {
+                        char *line_char = malloc(strlen(argv[4]) * sizeof(char));
+                        int countj = 5;
+                        int line = 0;
+                        for (int i = 0; i < strlen(argv[4]); i++)
+                        {
+                            line_char[i] = argv[4][countj++];
+                        }
+                        sscanf(line_char, "%d", &line);
+                        extract(sirPath1, nr_sect, line);
+                        free(line_char);
+                    }
+                    free(section_char);
+                }
+                free(sirPath1);
+            }
+        }
+        if (strcmp(argv[1], "findall") == 0)
+        {
+            if (strncmp(argv[2], "path=", 5) == 0)
+            {
+                char *sirPath1 = malloc(strlen(argv[2]) * sizeof(char));
+                int countj = 5;
+                printf("SUCCESS\n");
+                for (int i = 0; i < strlen(argv[2]); i++)
+                {
+                    sirPath1[i] = argv[2][countj++];
+                }
+                findall(sirPath1);
                 free(sirPath1);
             }
         }
