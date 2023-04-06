@@ -250,14 +250,18 @@ void findall(const char *path)
                     lseek(fd, -4, SEEK_CUR);
                     read(fd, &magic, 4);
                     magic[4] = '\0';
+                    printf("%s\n", magic);
 
                     lseek(fd, -6, SEEK_END);
                     read(fd, &header_size, 2);
+                    printf("%d\n", header_size);
 
                     lseek(fd, file_size - header_size, SEEK_SET);
                     read(fd, &version, 4);
+                    printf("%d\n", version);
 
                     read(fd, &no_of_sect, 1);
+                    printf("%d\n", no_of_sect);
                     section_header *headere = (section_header *)malloc(no_of_sect * sizeof(section_header));
                     if (!headere)
                     {
@@ -270,7 +274,6 @@ void findall(const char *path)
                     int verifica = 0;
                     if ((magic[0] != 'a' && magic[1] != 'x' && magic[2] != 't' && magic[3] != 'n'))
                     {
-                        printf("d");
                         verifica = 1;
                         free(headere);
                         close(fd);
@@ -278,7 +281,6 @@ void findall(const char *path)
                     }
                     if (version < 82 || version > 142)
                     {
-                        printf("c");
                         verifica = 1;
                         free(headere);
                         close(fd);
@@ -286,7 +288,6 @@ void findall(const char *path)
                     }
                     if (no_of_sect < 3 || no_of_sect > 17)
                     {
-                        printf("b");
                         verifica = 1;
                         free(headere);
                         close(fd);
@@ -304,30 +305,31 @@ void findall(const char *path)
                             read(fd, &headere[i].sect_size, 4);
                             if (headere[i].sect_type != 55 && headere[i].sect_type != 58)
                             {
-                                printf("a");
                                 verifica = 1;
+                                free(headere);
+                                close(fd);
                                 break;
                             }
-                            char oaod[2] = {0x0D, 0x0A};
+                            char *sectiune = malloc(headere[i].sect_size * sizeof(char));
                             lseek(fd, headere[i].sect_offset, SEEK_SET);
-                            for (int j = 0; j < headere[i].sect_size; j++)
+                            read(fd, sectiune, headere[i].sect_size);
+                            char *pos = sectiune;
+                            while ((pos = strstr(pos, "\x0D\x0A")) != NULL)
                             {
-                                char curr_char[3] = "";
-                                read(fd, &curr_char, 2);
-                                curr_char[3] = '\0';
-                                if (curr_char[0] == oaod[0] && curr_char[1] == oaod[1])
-                                {
-                                    count_linii++;
-                                }
+                                // Secventa de caractere a fost gasita - mareste numarul de linii
+                                count_linii++;
+                                pos++;
                             }
+                             free(sectiune);
+
                         }
                         if (verifica != 1 && count_linii > 14)
                         {
                             printf("%s\n", fullPath);
                         }
+                        free(headere);
+                        close(fd);
                     }
-                    free(headere);
-                    close(fd);
                 }
             }
         }
