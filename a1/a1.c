@@ -198,8 +198,100 @@ void parseSFformat(const char *path)
 
 void extract(const char *path, int nr_sect, int line)
 {
-    printf("%d\n", nr_sect);
-    printf("%d\n", line);
+    int fd = 0;
+    int file_size = 0;
+    char magic[5] = "";
+    int header_size = 0;
+    int no_of_sect = 0;
+    int version = 0;
+    int count_linii = 1;
+
+    fd = open(path, O_RDONLY);
+    if (fd == -1)
+    {
+        printf("Failed to open file");
+        return;
+    }
+
+    file_size = lseek(fd, 0, SEEK_END);
+    lseek(fd, -4, SEEK_CUR);
+    read(fd, &magic, 4);
+    magic[4] = '\0';
+
+    lseek(fd, -6, SEEK_END);
+    read(fd, &header_size, 2);
+
+    lseek(fd, file_size - header_size, SEEK_SET);
+    read(fd, &version, 4);
+
+    read(fd, &no_of_sect, 1);
+
+    section_header *headere = (section_header *)malloc(no_of_sect * sizeof(section_header));
+    if (!headere)
+    {
+        printf("Failed to allocate memory");
+        // free(headere);
+        close(fd);
+        return;
+    }
+
+    if ((magic[0] != 'a' && magic[1] != 'x' && magic[2] != 't' && magic[3] != 'n'))
+    {
+        free(headere);
+        close(fd);
+        return;
+    }
+    if (version < 82 || version > 142)
+    {
+
+        free(headere);
+        close(fd);
+        return;
+    }
+    if (no_of_sect < 3 || no_of_sect > 17)
+    {
+        free(headere);
+        close(fd);
+        return;
+    }
+    else
+    {
+        for (int i = 1; i <= no_of_sect; i++)
+        {
+            headere[i].sect_type = 0;
+            read(fd, &headere[i].sect_name, 18);
+            read(fd, &headere[i].sect_type, 2);
+            read(fd, &headere[i].sect_offset, 4);
+            read(fd, &headere[i].sect_size, 4);
+            if (headere[i].sect_type != 55 && headere[i].sect_type != 58)
+            {
+                free(headere);
+                close(fd);
+                return;
+            }
+
+            if (i == nr_sect)
+            {
+                char *sectiune = malloc(headere[i].sect_size * sizeof(char));
+                lseek(fd, headere[i].sect_offset, SEEK_SET);
+                read(fd, sectiune, headere[i].sect_size);
+                char *pos = strtok(sectiune, "\x0D\x0A");
+                while (pos != NULL)
+                {
+                    if (count_linii == line)
+                    {
+                        printf("%s\n", pos);
+                        break;
+                    }
+                    pos = strtok(NULL, "\x0D\x0A");
+                    count_linii++;
+                }
+                free(sectiune);
+            }
+        }
+    }
+    free(headere);
+    close(fd);
 }
 
 void findall(const char *path)
@@ -215,6 +307,7 @@ void findall(const char *path)
     if (dir == NULL)
     {
         perror("Could not open directory");
+        closedir(dir);
         return;
     }
     while ((entry = readdir(dir)) != NULL)
@@ -224,12 +317,11 @@ void findall(const char *path)
             snprintf(fullPath, 512, "%s/%s", path, entry->d_name);
             if (lstat(fullPath, &statbuf) == 0)
             {
-                // printf("%s\n", fullPath);
                 if (S_ISDIR(statbuf.st_mode))
                 {
                     findall(fullPath);
                 }
-                else if (S_ISREG(statbuf.st_mode))
+                if (S_ISREG(statbuf.st_mode))
                 {
 
                     int fd = 0;
@@ -253,18 +345,19 @@ void findall(const char *path)
 
                     lseek(fd, -6, SEEK_END);
                     read(fd, &header_size, 2);
-                   
+
                     lseek(fd, file_size - header_size, SEEK_SET);
                     read(fd, &version, 4);
 
                     read(fd, &no_of_sect, 1);
-                    
+
                     section_header *headere = (section_header *)malloc(no_of_sect * sizeof(section_header));
                     if (!headere)
                     {
                         printf("Failed to allocate memory");
-                        free(headere);
+                        // free(headere);
                         close(fd);
+                        closedir(dir);
                         return;
                     }
 
@@ -274,6 +367,7 @@ void findall(const char *path)
                         verifica = 1;
                         free(headere);
                         close(fd);
+                        closedir(dir);
                         return;
                     }
                     if (version < 82 || version > 142)
@@ -281,6 +375,7 @@ void findall(const char *path)
                         verifica = 1;
                         free(headere);
                         close(fd);
+                        closedir(dir);
                         return;
                     }
                     if (no_of_sect < 3 || no_of_sect > 17)
@@ -288,10 +383,12 @@ void findall(const char *path)
                         verifica = 1;
                         free(headere);
                         close(fd);
+                        closedir(dir);
                         return;
                     }
                     else
                     {
+                        int max_linii = 1;
                         for (int i = 0; i < no_of_sect; i++)
                         {
                             lseek(fd, file_size - header_size + 5, SEEK_SET); // plus 5 pentru a sari de bitii pentru version si no_of_sect
@@ -305,28 +402,33 @@ void findall(const char *path)
                                 verifica = 1;
                                 free(headere);
                                 close(fd);
-                                break;
+                                closedir(dir);
                             }
                             char *sectiune = malloc(headere[i].sect_size * sizeof(char));
                             lseek(fd, headere[i].sect_offset, SEEK_SET);
                             read(fd, sectiune, headere[i].sect_size);
-                            char *pos = sectiune;
-                            while ((pos = strstr(pos, "\x0D\x0A")) != NULL)
+                            for (int j = 0; j < headere[i].sect_size - 1; j++)
                             {
-                                // Secventa de caractere a fost gasita - mareste numarul de linii
-                                count_linii++;
-                                pos++;
+                                if (sectiune[j] == '\x0D' && sectiune[j + 1] == '\x0A')
+                                {
+                                    count_linii++;
+                                }
                             }
-                             free(sectiune);
-
+                            if (max_linii < count_linii)
+                            {
+                                max_linii = count_linii;
+                            }
+                            free(sectiune);
                         }
-                        if (verifica != 1 && count_linii > 14)
+                        if (verifica == 0 && max_linii > 14)
                         {
                             printf("%s\n", fullPath);
                         }
-                        free(headere);
-                        close(fd);
+                        count_linii = 1;
                     }
+
+                    free(headere);
+                    close(fd);
                 }
             }
         }
@@ -456,6 +558,7 @@ int main(int argc, char **argv)
 
                     if (strncmp(argv[4], "line=", 5) == 0)
                     {
+                        printf("SUCCESS\n");
                         char *line_char = malloc(strlen(argv[4]) * sizeof(char));
                         int countj = 5;
                         int line = 0;
