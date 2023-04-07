@@ -281,6 +281,7 @@ void extract(const char *path, int nr_sect, int line)
                     if (count_linii == line)
                     {
                         printf("%s\n", pos);
+                        close(fd);
                         break;
                     }
                     pos = strtok(NULL, "\x0D\x0A");
@@ -289,6 +290,8 @@ void extract(const char *path, int nr_sect, int line)
                 free(sectiune);
             }
         }
+        free(headere);
+        close(fd);
     }
     free(headere);
     close(fd);
