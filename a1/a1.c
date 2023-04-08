@@ -25,40 +25,43 @@ void listIterative(const char *path, char *is_in_path, int control, int has_perm
     dir = opendir(path);
     if (dir == NULL)
     {
-        perror("Could not open directory");
+        perror("ERROR\ninvalid directory path\n");
         return;
     }
-    while ((entry = readdir(dir)) != NULL)
+    else
     {
-        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0)
+        printf("SUCCESS\n");
+        while ((entry = readdir(dir)) != NULL)
         {
-            snprintf(fullPath, 512, "%s/%s", path, entry->d_name);
-            if (lstat(fullPath, &statbuf) == 0)
+            if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0)
             {
-                if (is_in_path != NULL && strncmp(entry->d_name, is_in_path, strlen(is_in_path)) == 0 && control == 1 && has_perm == 0) // verificam daca substring-ul se afla in in numele fisierului la inceput si daca executam cautarea pentru name_starts_with
+                snprintf(fullPath, 512, "%s/%s", path, entry->d_name);
+                if (lstat(fullPath, &statbuf) == 0)
                 {
-                    printf("%s\n", fullPath);
-                }
-                else if (has_perm == 1) // verificam daca parametrul has_perm este 1 pentru a face executia
-                {
-                    if (((S_ISREG(statbuf.st_mode) || S_ISDIR(statbuf.st_mode)) && ((statbuf.st_mode & S_IXUSR) == S_IXUSR))) // verificam daca avem director sau regular file si aplicam o operatie pe biti pentru a afla daca are acces de tip write
+                    if (is_in_path != NULL && strncmp(entry->d_name, is_in_path, strlen(is_in_path)) == 0 && control == 1 && has_perm == 0) // verificam daca substring-ul se afla in in numele fisierului la inceput si daca executam cautarea pentru name_starts_with
                     {
-
                         printf("%s\n", fullPath);
                     }
-                }
-                else if (control == 0 && has_perm == 0) // executia normala a listIterative fara a face name_starts_with si has_perm_execute
-                {
-                    printf("%s\n", fullPath);
+                    else if (has_perm == 1) // verificam daca parametrul has_perm este 1 pentru a face executia
+                    {
+                        if (((S_ISREG(statbuf.st_mode) || S_ISDIR(statbuf.st_mode)) && ((statbuf.st_mode & S_IXUSR) == S_IXUSR))) // verificam daca avem director sau regular file si aplicam o operatie pe biti pentru a afla daca are acces de tip write
+                        {
+
+                            printf("%s\n", fullPath);
+                        }
+                    }
+                    else if (control == 0 && has_perm == 0) // executia normala a listIterative fara a face name_starts_with si has_perm_execute
+                    {
+                        printf("%s\n", fullPath);
+                    }
                 }
             }
         }
     }
-    // free(fullPath);
     closedir(dir);
 }
 
-void listRec(const char *path)
+void listRec(const char *path, int intrat)
 {
     DIR *dir = NULL;
     struct dirent *entry = NULL;
@@ -68,24 +71,33 @@ void listRec(const char *path)
     dir = opendir(path);
     if (dir == NULL)
     {
-        perror("Could not open directory");
+        perror("ERROR\ninvalid directory path\n");
         return;
     }
-    while ((entry = readdir(dir)) != NULL)
+    else
     {
-        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0)
+        if (intrat == 0)
         {
-            snprintf(fullPath, 512, "%s/%s", path, entry->d_name);
-            if (lstat(fullPath, &statbuf) == 0)
+            printf("SUCCESS\n");
+        }
+        intrat = 1;
+        while ((entry = readdir(dir)) != NULL)
+        {
+            if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0)
             {
-                printf("%s\n", fullPath);
-                if (S_ISDIR(statbuf.st_mode)) // verificam daca este director
+                snprintf(fullPath, 512, "%s/%s", path, entry->d_name);
+                if (lstat(fullPath, &statbuf) == 0)
                 {
-                    listRec(fullPath); // se face parcurgerea recursiva
+                    printf("%s\n", fullPath);
+                    if (S_ISDIR(statbuf.st_mode)) // verificam daca este director
+                    {
+                        listRec(fullPath, intrat); // se face parcurgerea recursiva
+                    }
                 }
             }
         }
     }
+
     // free(fullPath);
     closedir(dir);
 }
@@ -100,42 +112,36 @@ void parseSFformat(const char *path)
     int version = 0;
 
     fd = open(path, O_RDONLY);
-    // printf("%d\n", fd);
     if (fd == -1)
     {
-        printf("Failed to open file");
+        printf("ERROR\ninvalid file\n");
         return;
     }
 
     file_size = lseek(fd, 0, SEEK_END);
-    // printf("%d\n", file_size);
+
     lseek(fd, -4, SEEK_CUR);
     read(fd, &magic, 4);
     magic[4] = '\0';
-    // printf("%s\n", magic);
 
     lseek(fd, -6, SEEK_END);
     read(fd, &header_size, 2);
-    // printf("%d\n", header_size);
 
     lseek(fd, file_size - header_size, SEEK_SET);
     read(fd, &version, 4);
-    // printf("%d\n", version);
 
     read(fd, &no_of_sect, 1);
-    // printf("%d\n", no_of_sect);
 
     section_header *headere = (section_header *)malloc(no_of_sect * sizeof(section_header));
     if (!headere)
     {
-        printf("Failed to allocate memory");
+        printf("Failed to allocate memory\n");
         free(headere);
         close(fd);
         return;
     }
 
     int verifica = 0;
-    // printf("%s\n", magic);
     if (magic[0] != 'a' && magic[1] != 'x' && magic[2] != 't' && magic[3] != 'n')
     {
         printf("ERROR\nwrong magic\n");
@@ -146,7 +152,7 @@ void parseSFformat(const char *path)
     }
     else if (version < 82 || version > 142)
     {
-        printf("ERROR\nwrong version");
+        printf("ERROR\nwrong version\n");
         verifica = 1;
         free(headere);
         close(fd);
@@ -154,7 +160,7 @@ void parseSFformat(const char *path)
     }
     else if (no_of_sect < 3 || no_of_sect > 17)
     {
-        printf("ERROR\nwrong sect_nr");
+        printf("ERROR\nwrong sect_nr\n");
         verifica = 1;
         free(headere);
         close(fd);
@@ -171,7 +177,7 @@ void parseSFformat(const char *path)
             read(fd, &headere[i].sect_size, 4);
             if (headere[i].sect_type != 55 && headere[i].sect_type != 58)
             {
-                printf("ERROR\nwrong sect_types");
+                printf("ERROR\nwrong sect_types\n");
                 verifica = 1;
                 break;
             }
@@ -192,7 +198,6 @@ void parseSFformat(const char *path)
     }
 
     free(headere);
-
     close(fd);
 }
 
@@ -209,7 +214,7 @@ void extract(const char *path, int nr_sect, int line)
     fd = open(path, O_RDONLY);
     if (fd == -1)
     {
-        printf("Failed to open file");
+        printf("ERROR\ninvalid file\n");
         return;
     }
 
@@ -226,12 +231,16 @@ void extract(const char *path, int nr_sect, int line)
 
     read(fd, &no_of_sect, 1);
 
-    section_header *headere = (section_header *)malloc(no_of_sect * sizeof(section_header));
+    section_header *headere = (section_header *)malloc((no_of_sect + 1) * sizeof(section_header));
     if (!headere)
     {
-        printf("Failed to allocate memory");
-        // free(headere);
+        printf("Failed to allocate memory\n");
         close(fd);
+        return;
+    }
+    if (nr_sect > no_of_sect)
+    {
+        printf("ERROR\ninvalid section\n");
         return;
     }
 
@@ -280,6 +289,7 @@ void extract(const char *path, int nr_sect, int line)
                 {
                     if (count_linii == line)
                     {
+                        printf("SUCCESS\n");
                         printf("%s\n", pos);
                         close(fd);
                         break;
@@ -287,11 +297,14 @@ void extract(const char *path, int nr_sect, int line)
                     pos = strtok(NULL, "\x0D\x0A");
                     count_linii++;
                 }
+                if (line > count_linii)
+                {
+                    printf("ERROR\ninvalid line\n");
+                    return;
+                }
                 free(sectiune);
             }
         }
-        free(headere);
-        close(fd);
     }
     free(headere);
     close(fd);
@@ -309,7 +322,7 @@ void findall(const char *path)
     dir = opendir(path);
     if (dir == NULL)
     {
-        perror("Could not open directory");
+        printf("ERROR\ninvalid directory path\n");
         closedir(dir);
         return;
     }
@@ -337,7 +350,7 @@ void findall(const char *path)
                     fd = open(fullPath, O_RDONLY);
                     if (fd == -1)
                     {
-                        printf("Failed to open file");
+                        printf("ERROR\ninvalid file\n");
                         return;
                     }
 
@@ -357,8 +370,7 @@ void findall(const char *path)
                     section_header *headere = (section_header *)malloc(no_of_sect * sizeof(section_header));
                     if (!headere)
                     {
-                        printf("Failed to allocate memory");
-                        // free(headere);
+                        printf("Failed to allocate memory\n");
                         close(fd);
                         closedir(dir);
                         return;
@@ -373,7 +385,7 @@ void findall(const char *path)
                         closedir(dir);
                         return;
                     }
-                    if (version < 82 || version > 142)
+                    else if (version < 82 || version > 142)
                     {
                         verifica = 1;
                         free(headere);
@@ -381,7 +393,7 @@ void findall(const char *path)
                         closedir(dir);
                         return;
                     }
-                    if (no_of_sect < 3 || no_of_sect > 17)
+                    else if (no_of_sect < 3 || no_of_sect > 17)
                     {
                         verifica = 1;
                         free(headere);
@@ -458,13 +470,12 @@ int main(int argc, char **argv)
                 {
                     char *sirPath = malloc((strlen(argv[3])) * sizeof(char));
                     int countj = 5;
-                    printf("SUCCESS\n");
                     for (int i = 0; i < strlen(argv[3]); i++)
                     {
                         sirPath[i] = argv[3][countj++];
                         // printf("%s", sirPath);
                     }
-                    listRec(sirPath); // parcurgem recursiv directorul
+                    listRec(sirPath, 0); // parcurgem recursiv directorul
                     free(sirPath);
                 }
             }
@@ -474,7 +485,6 @@ int main(int argc, char **argv)
             {
                 char *sirPath = malloc((strlen(argv[2])) * sizeof(char));
                 int countj = 5;
-                printf("SUCCESS\n");
                 for (int i = 0; i < strlen(argv[2]); i++)
                 {
                     sirPath[i] = argv[2][countj++];
@@ -494,7 +504,6 @@ int main(int argc, char **argv)
                 {
                     char *sirPath = malloc((strlen(argv[3])) * sizeof(char)); // alocam memorie pentru path
                     int countj = 5;
-                    printf("SUCCESS\n");
                     for (int i = 0; i < strlen(argv[3]); i++)
                     {
                         sirPath[i] = argv[3][countj++]; // scriem numele fisierului
@@ -512,7 +521,6 @@ int main(int argc, char **argv)
                 {
                     char *sirPath = malloc((strlen(argv[3])) * sizeof(char));
                     int countj = 5;
-                    printf("SUCCESS\n");
                     for (int i = 0; i < strlen(argv[3]); i++)
                     {
                         sirPath[i] = argv[3][countj++];
@@ -561,7 +569,6 @@ int main(int argc, char **argv)
 
                     if (strncmp(argv[4], "line=", 5) == 0)
                     {
-                        printf("SUCCESS\n");
                         char *line_char = malloc(strlen(argv[4]) * sizeof(char));
                         int countj = 5;
                         int line = 0;
