@@ -6,6 +6,39 @@
 #include <pthread.h>
 #include <fcntl.h>
 
+typedef struct
+{
+    int nrThread;
+    int nrPorcess;
+} ThStrucut;
+
+pthread_mutex_t mutex4;
+pthread_mutex_t mutex3;
+
+void verificareTh(ThStrucut *th)
+{
+    if (th->nrPorcess == 7 && th->nrThread == 3)
+    {
+        
+        pthread_mutex_lock(&mutex3);
+    }
+    info(BEGIN, th->nrPorcess, th->nrThread);
+    if (th->nrPorcess == 7 && th->nrThread == 4)
+    {
+        pthread_mutex_lock(&mutex4);
+    }
+    if (th->nrPorcess == 7 && th->nrThread == 4)
+    {
+        pthread_mutex_unlock(&mutex3);
+    }
+    info(END, th->nrPorcess, th->nrThread);
+
+    if (th->nrPorcess == 7 && th->nrThread == 3)
+    {
+        pthread_mutex_unlock(&mutex4);
+    }
+}
+
 int main()
 {
     init();
@@ -66,11 +99,21 @@ int main()
             {
                 info(BEGIN, 5, 0);
 
-
                 pid7 = fork();
                 if (pid7 == 0)
                 {
                     info(BEGIN, 7, 0);
+                    pthread_mutex_init(&mutex4, NULL);
+                    pthread_mutex_init(&mutex3, NULL);
+                    pthread_t threads[4];
+
+                    ThStrucut th[4] = {{1, 7}, {2, 7}, {3, 7}, {4, 7}};
+                    pthread_mutex_lock (&mutex3);
+
+                    for (int i = 0; i < 4; i++)
+                        pthread_create(&threads[i], NULL, (void *)verificareTh, (void *)&th[i]);
+                    for (int i = 0; i < 4; i++)
+                        pthread_join(threads[i], NULL);
 
                     pid9 = fork();
                     if (pid9 == 0)
