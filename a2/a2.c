@@ -4,6 +4,7 @@
 #include <sys/wait.h>
 #include "a2_helper.h"
 #include <pthread.h>
+#include <semaphore.h>
 #include <fcntl.h>
 
 typedef struct
@@ -12,31 +13,26 @@ typedef struct
     int nrPorcess;
 } ThStrucut;
 
-pthread_mutex_t mutex4;
-pthread_mutex_t mutex3;
-
-void verificareTh(ThStrucut *th)
+sem_t sem;
+void *thread_func(ThStrucut *arg)
 {
-    if (th->nrPorcess == 7 && th->nrThread == 3)
-    {
-        
-        pthread_mutex_lock(&mutex3);
-    }
-    info(BEGIN, th->nrPorcess, th->nrThread);
-    if (th->nrPorcess == 7 && th->nrThread == 4)
-    {
-        pthread_mutex_lock(&mutex4);
-    }
-    if (th->nrPorcess == 7 && th->nrThread == 4)
-    {
-        pthread_mutex_unlock(&mutex3);
-    }
-    info(END, th->nrPorcess, th->nrThread);
 
-    if (th->nrPorcess == 7 && th->nrThread == 3)
+    info(BEGIN, 7, arg->nrThread);
+
+    if (arg->nrThread == 4)
     {
-        pthread_mutex_unlock(&mutex4);
+        sem_wait(&sem); // wait for T7.3 to start
     }
+
+
+    if (arg->nrThread == 3)
+    {
+        sem_post(&sem); // signal T7.4 to start
+    }
+
+    info(END, 7, arg->nrThread);
+
+    return NULL;
 }
 
 int main()
@@ -103,18 +99,22 @@ int main()
                 if (pid7 == 0)
                 {
                     info(BEGIN, 7, 0);
-                    pthread_mutex_init(&mutex4, NULL);
-                    pthread_mutex_init(&mutex3, NULL);
+
+                    sem_init(&sem, 0, 0);
+
+                    // create threads
                     pthread_t threads[4];
-
                     ThStrucut th[4] = {{1, 7}, {2, 7}, {3, 7}, {4, 7}};
-                    pthread_mutex_lock (&mutex3);
+                    for (int i = 0; i < 4; i++)
+                    {
+                        pthread_create(&threads[i], NULL, (void*) thread_func, &th[i]);
+                    }
 
+                    // wait for threads to finish
                     for (int i = 0; i < 4; i++)
-                        pthread_create(&threads[i], NULL, (void *)verificareTh, (void *)&th[i]);
-                    for (int i = 0; i < 4; i++)
+                    {
                         pthread_join(threads[i], NULL);
-
+                    }
                     pid9 = fork();
                     if (pid9 == 0)
                     {
