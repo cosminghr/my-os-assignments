@@ -21,29 +21,27 @@ sem_t sem2_1, sem2_2;
 
 void *thread_func_for2_3(ThStrucut *arg)
 {
-    info(BEGIN, 7, arg->nrThread);
-
     if (arg->nrThread == 3)
     {
-        sem_post(&sem_t73_started);
         sem_wait(&sem_t74_started);
-    }
-
-    if (arg->nrThread == 4)
-    {
-        sem_post(&sem_t74_started);
-        sem_wait(&sem_t73_started);
+        info(BEGIN, 7, arg->nrThread);
+        info(END, 7, arg->nrThread);
         sem_post(&sem_t74_ended);
     }
-
-    info(END, 7, arg->nrThread);
-
-    if (arg->nrThread == 4)
+    else if (arg->nrThread == 4)
     {
+        info(BEGIN, 7, arg->nrThread);
+        sem_post(&sem_t74_started);
         sem_wait(&sem_t74_ended);
+        info(END, 7, arg->nrThread);
+    }
+    else
+    {
+        info(BEGIN, 7, arg->nrThread);
+        info(END, 7, arg->nrThread);
     }
 
-    return NULL;
+  return NULL;
 }
 void *thread_func_for2_5(ThStrucut *th)
 {
