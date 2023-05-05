@@ -13,10 +13,11 @@ typedef struct
     int nrProcess;
 } ThStrucut;
 
-sem_t sem_t70_ended;
 sem_t sem_t74_started;
 sem_t sem_t74_ended;
-sem_t sem_t73_started;
+sem_t sem2_3_start;
+sem_t sem_t2_3_end;
+sem_t sem7_2_end;
 sem_t sem2_1, sem2_2;
 
 void *thread_func_for2_3(ThStrucut *arg)
@@ -41,7 +42,16 @@ void *thread_func_for2_3(ThStrucut *arg)
         info(END, 7, arg->nrThread);
     }
 
-  return NULL;
+    return NULL;
+}
+
+void *thread_func_for2_4(ThStrucut *th)
+{
+
+    info(BEGIN, 4, th->nrThread);
+    info(END, 4, th->nrThread);
+
+    return NULL;
 }
 void *thread_func_for2_5(ThStrucut *th)
 {
@@ -87,6 +97,7 @@ int main()
 
         sem_init(&sem2_1, 0, 0);
         sem_init(&sem2_2, 0, 0);
+        sem_init(&sem_t2_3_end, 0, 0);
 
         pthread_t threads[5];
         ThStrucut th[5] = {{1, 2}, {2, 2}, {3, 2}, {4, 2}, {5, 2}};
@@ -103,6 +114,7 @@ int main()
         }
         sem_destroy(&sem2_1);
         sem_destroy(&sem2_2);
+        sem_destroy(&sem_t2_3_end);
         pid3 = fork();
 
         if (pid3 == 0)
@@ -142,6 +154,23 @@ int main()
         if (pid4 == 0)
         {
             info(BEGIN, 4, 0);
+
+            pthread_t threads[48];
+            ThStrucut th[48];
+
+            for (int i = 1; i <= 48; i++)
+            {
+                th[i].nrProcess = 4;
+                th[i].nrThread = i;
+                pthread_create(&threads[i - 1], NULL, (void *)thread_func_for2_4, &th[i]);
+            }
+
+            // wait for threads to finish
+            for (int i = 0; i < 47; i++)
+            {
+                pthread_join(threads[i], NULL);
+            }
+
             info(END, 4, 0);
         }
         else
@@ -155,10 +184,10 @@ int main()
                 if (pid7 == 0)
                 {
                     info(BEGIN, 7, 0);
-                    sem_init(&sem_t70_ended, 0, 0);
+
                     sem_init(&sem_t74_started, 0, 0);
                     sem_init(&sem_t74_ended, 0, 0);
-                    sem_init(&sem_t73_started, 0, 0);
+                    sem_init(&sem7_2_end, 0, 0);
 
                     // create threads
                     pthread_t threads[4];
@@ -173,10 +202,11 @@ int main()
                     {
                         pthread_join(threads[i], NULL);
                     }
-                    sem_destroy(&sem_t70_ended);
+
                     sem_destroy(&sem_t74_started);
                     sem_destroy(&sem_t74_ended);
-                    sem_destroy(&sem_t73_started);
+
+                    sem_destroy(&sem7_2_end);
 
                     pid9 = fork();
                     if (pid9 == 0)
