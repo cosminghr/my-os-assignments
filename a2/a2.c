@@ -13,27 +13,32 @@ typedef struct
     int nrProcess;
 } ThStrucut;
 
-sem_t sem_t74_started;
-sem_t sem_t74_ended;
-sem_t sem2_3_start;
-sem_t sem_t2_3_end;
-sem_t sem7_2_end;
-sem_t sem2_1, sem2_2;
+sem_t *sem_t74_started;
+sem_t *sem_t74_ended;
+sem_t *sem2_1, *sem2_2;
 
 void *thread_func_for2_3(ThStrucut *arg)
 {
-    if (arg->nrThread == 3)
+    if (arg->nrThread == 2 && arg->nrProcess == 7)
     {
-        sem_wait(&sem_t74_started);
+        sem_wait(sem2_1);
+        info(BEGIN, 7, 2);
+        
+        info(END, 7, 2);
+        sem_post(sem2_2);
+    }
+    else if (arg->nrThread == 3)
+    {
+        sem_wait(sem_t74_started);
         info(BEGIN, 7, arg->nrThread);
         info(END, 7, arg->nrThread);
-        sem_post(&sem_t74_ended);
+        sem_post(sem_t74_ended);
     }
     else if (arg->nrThread == 4)
     {
         info(BEGIN, 7, arg->nrThread);
-        sem_post(&sem_t74_started);
-        sem_wait(&sem_t74_ended);
+        sem_post(sem_t74_started);
+        sem_wait(sem_t74_ended);
         info(END, 7, arg->nrThread);
     }
     else
@@ -55,29 +60,23 @@ void *thread_func_for2_4(ThStrucut *th)
 }
 void *thread_func_for2_5(ThStrucut *th)
 {
-    if (th->nrThread == 2 && th->nrProcess == 7)
-    {
-        sem_wait(&sem2_1);
-        info(BEGIN, 7, 2);
-        info(END, 7, 2);
-        sem_post(&sem2_2);
-    }
+
     if (th->nrProcess == 2 && th->nrThread == 2)
     {
+        sem_wait(sem2_2);
         info(BEGIN, 2, 2);
         info(END, 2, 2);
-        sem_post(&sem2_1);
     }
-    if (th->nrThread == 3 && th->nrProcess == 2)
+    else if (th->nrThread == 3 && th->nrProcess == 2)
     {
         info(BEGIN, 2, 3);
         info(END, 2, 3);
+        sem_post(sem2_1);
     }
-    if (th->nrThread != 2 && th->nrThread != 3 && th->nrProcess == 2)
+    else
     {
         info(BEGIN, 2, th->nrThread);
         info(END, 2, th->nrThread);
-        wait(NULL);
     }
 
     return NULL;
@@ -87,6 +86,16 @@ int main()
 {
     init();
 
+    unlink("sem2_1");
+    unlink("sem2_2");
+    unlink("sem_t74_started");
+    unlink("sem_t74_ended");
+
+    sem2_1 = sem_open("sem2_1", O_CREAT, 0644, 0);
+    sem2_2 = sem_open("sem2_2", O_CREAT, 0644, 0);
+    sem_t74_started = sem_open("sem_t74_started", O_CREAT, 0644, 0);
+    sem_t74_ended = sem_open("sem_t74_ended", O_CREAT, 0644, 0);
+
     pid_t pid2, pid3, pid4, pid5, pid6, pid7, pid8, pid9;
 
     info(BEGIN, 1, 0);
@@ -94,10 +103,6 @@ int main()
     if (pid2 == 0)
     {
         info(BEGIN, 2, 0);
-
-        sem_init(&sem2_1, 0, 0);
-        sem_init(&sem2_2, 0, 0);
-        sem_init(&sem_t2_3_end, 0, 0);
 
         pthread_t threads[5];
         ThStrucut th[5] = {{1, 2}, {2, 2}, {3, 2}, {4, 2}, {5, 2}};
@@ -112,9 +117,9 @@ int main()
         {
             pthread_join(threads[i], NULL);
         }
-        sem_destroy(&sem2_1);
-        sem_destroy(&sem2_2);
-        sem_destroy(&sem_t2_3_end);
+
+        sem_destroy(sem2_1);
+        sem_destroy(sem2_2);
         pid3 = fork();
 
         if (pid3 == 0)
@@ -166,7 +171,7 @@ int main()
             }
 
             // wait for threads to finish
-            for (int i = 0; i < 47; i++)
+            for (int i = 0; i <= 47; i++)
             {
                 pthread_join(threads[i], NULL);
             }
@@ -185,10 +190,6 @@ int main()
                 {
                     info(BEGIN, 7, 0);
 
-                    sem_init(&sem_t74_started, 0, 0);
-                    sem_init(&sem_t74_ended, 0, 0);
-                    sem_init(&sem7_2_end, 0, 0);
-
                     // create threads
                     pthread_t threads[4];
                     ThStrucut th[4] = {{1, 7}, {2, 7}, {3, 7}, {4, 7}};
@@ -202,11 +203,6 @@ int main()
                     {
                         pthread_join(threads[i], NULL);
                     }
-
-                    sem_destroy(&sem_t74_started);
-                    sem_destroy(&sem_t74_ended);
-
-                    sem_destroy(&sem7_2_end);
 
                     pid9 = fork();
                     if (pid9 == 0)
